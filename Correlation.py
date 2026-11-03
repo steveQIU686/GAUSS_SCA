@@ -1,83 +1,50 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from scipy.stats import pointbiserialr
 
-# Load data
-file_path_0 = 'C:/Users/jqiu2/Desktop/HOST_2025/Original_Materials/001neg1-O0.csv'
-file_path_1 = 'C:/Users/jqiu2/Desktop/HOST_2025/Original_Materials/100neg0-O0.csv'
+# Load the two trace groups. Filenames identify the sampling/negation cases.
+trace_file_001_neg1 = 'C:/REFERENCE_DIR/001neg1-O0.csv'
+trace_file_100_neg0 = 'C:/REFERENCE_DIR/100neg0-O0.csv'
+sample_limit = 5000
+trace_data_001_neg1 = pd.read_csv(trace_file_001_neg1, header=None, nrows=sample_limit, low_memory=False)
+trace_data_100_neg0 = pd.read_csv(trace_file_100_neg0, header=None, nrows=sample_limit, low_memory=False)
 
-data_0 = pd.read_csv(file_path_0, header=None, nrows=5000, low_memory=False)
-data_1 = pd.read_csv(file_path_1, header=None, nrows=5000, low_memory=False)
+# Preserve the original CSV handling: exclude the last column and transpose.
+# After transposition, each row is a trace and each column is a sample.
+traces_001_neg1 = trace_data_001_neg1.iloc[:, :-1].to_numpy(dtype=float).T
+traces_100_neg0 = trace_data_100_neg0.iloc[:, :-1].to_numpy(dtype=float).T
+combined_traces = np.concatenate((traces_001_neg1, traces_100_neg0), axis=0)
 
-power_measurements_0 = data_0.iloc[:, :-1].values
-power_measurements_1 = data_1.iloc[:, :-1].values
+# Artificial HW labels (0 or 64), one per trace in the concatenation order.
+# These are already Hamming weights, not plaintext or values to convert to HW.
+hw_labels = np.loadtxt('output_values.txt', delimiter=',', dtype=float).reshape(-1)
+num_traces, num_samples = combined_traces.shape
+if len(hw_labels) != num_traces:
+    raise ValueError('Expected one HW label per trace in combined_traces.')
+correlations = np.empty(num_samples, dtype=float)
 
-# Save power measurements as a numpy array
-power_trace_0 = np.array(power_measurements_0).T  
-power_trace_1 = np.array(power_measurements_1).T  
-power_trace = np.concatenate((power_trace_0, power_trace_1), axis=0)
+# Correlate the known HW labels with measurements at each sample position.
+print('Start calculating POI correlation')
+for sample_index in range(num_samples):
+    sample_measurements = combined_traces[:, sample_index]
+    correlation_matrix = np.corrcoef(sample_measurements, hw_labels)
+    correlations[sample_index] = correlation_matrix[0, 1]
 
-# Load plain text
-plaintext = np.loadtxt("output_values.txt", delimiter=",", dtype=int)
+# Locate the largest positive and most negative correlations, not key guesses.
+max_correlation_sample = np.argmax(correlations)
+min_correlation_sample = np.argmin(correlations)
+max_correlation = correlations[max_correlation_sample]
+min_correlation = correlations[min_correlation_sample]
 
-power_trace = power_trace.astype(float)
-
-# Set data
-total_length = len(plaintext) # the length is 30k
-total_data_length = 1
-power_trace_length = power_trace.shape[1] #5000
-save_data = np.empty((1,1,5000), dtype=float)
-
-# Get each byte in input data
-print('Start calculating correlation') # to show the process
-each_byte = np.empty((0,0), dtype=int)
-for byte in range(total_length):
-    each_text = plaintext[byte]
-    each_byte = np.append(each_byte, each_text)  # get byte 
-
-hamming_weight = np.empty((0,0))
-for hw_counter in range(total_length):
-    hamming_weight = np.append(hamming_weight, each_byte[hw_counter])
-
-# Calculate the correlation
-for timestamp in range(power_trace_length):
-    power_model = np.empty((0,0))
-    power_model = np.append(power_model, power_trace[:, timestamp])
-    
-    corr_result = np.corrcoef(power_model, hamming_weight[:])
-    save_data[0,0,timestamp] = corr_result[0,1]
-
-# Get two best possible keys' positions
-get_highest_position = np.empty((0), dtype=int)
-get_lowest_position = np.empty((0), dtype=int)
-get_max = np.empty((0))
-get_min = np.empty((0))
-
-get_highest_position = np.append(get_highest_position, np.argmax(save_data[0, :, :]))
-get_lowest_position = np.append(get_lowest_position, np.argmin(save_data[0, :, :]))
-get_max = np.append(get_max, np.max(save_data[0, :, :]))
-get_min = np.append(get_min, np.min(save_data[0, :, :]))
-
-# Plot figure 2
-plt.figure(figsize=(15, 3))  # Adjust the aspect ratio
-plt.plot(np.transpose(save_data[0, :, :]), linewidth=2)  # Make lines bold
-
-# Set labels with editable font sizes
-plt.xlabel('Time', fontsize=14)  # Standard size for academic and PDF viewing
+# Plot correlation across sample positions.
+plt.figure(figsize=(15, 3))
+plt.plot(correlations, linewidth=2)
+plt.xlabel('Sample index', fontsize=14)
 plt.ylabel('Correlation', fontsize=14)
-
-# Make all ticks adjustable
 plt.xticks(fontsize=12)
 plt.yticks(fontsize=12)
-
 plt.tight_layout()
 plt.subplots_adjust(top=0.9)
-
-# Set the title
-plt.suptitle('Correlation Results', fontsize=16)
-
-# Save the figure as a PDF file for editing in Visio and Overleaf
+plt.suptitle('SHIFT-SNARE POI Correlation', fontsize=16)
 plt.savefig('correlation_results.pdf', format='pdf')
-
 plt.show()
