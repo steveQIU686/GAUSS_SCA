@@ -1,11 +1,7 @@
 # proj_pqc_sca_FALCON_GAUSS_KeyGen
-Side channel attack on FALCON's discrete Gaussian sampling process with Key generation (Attacking Software implementation). 
-
-Procedure to replicate the experimental results: 
-  1. Call the Trasfer.py to transfer the .trs files to .csv raw data.
-  2. Correlation power analysis takes the correlation between the power traces and a fixed value set over time:
-     First call write_LABLs.py to generate the fixed value set.
-     Then call Correlation.py to calculate the correlation over time.
+A complete side-channel attack pipeline on FALCON's disreate gaussian sampling process in KeyGen. This sampling process samples small polynomial coefficients for lattice base components f and g. The attack exploits intermediate values using simple power analysis. Then use these intermedaite variables to deduce the full key. This attack provides practical, detailed, and replicable tasks starting from raw power measurements.  Procedure to replicate the experimental results are: 
+  1. Trace preprocessing: transfer the .trs raw trace to .csv data values
+  2. Points of interest(POIs) identification: We use a correlation power analysis based method to identify the POIs. We start with 
   4. At the point of interest, call AVG_Trace_twocase.py to draw the average trace comparison.
   5. Call Univariate_Gauss.py to view the theoretical model analysis results.
   6. OPTIONAL and NOT included in the paper: call PCA-Test to view the clustering results between the two cases.
